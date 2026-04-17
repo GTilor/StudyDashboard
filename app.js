@@ -642,7 +642,7 @@ function renderIdeaBoard() {
   summary.innerHTML = `
     <span class="idea-pill">
       <strong>${pendingCount}</strong>
-      backlog
+      pending
     </span>
     <span class="idea-pill ${staleCount ? "alert" : ""}">
       <strong>${staleCount}</strong>
@@ -690,8 +690,8 @@ function renderIdeaBoard() {
           <h3>${state.ideaPanelView === "archive" ? "Shipped Archive" : "Idea Backlog"}</h3>
           <p>${
             state.ideaPanelView === "archive"
-              ? "完成的灵感放进归档，不再无限拉长页面；需要回炉时再重新打开。"
-              : "这里专门放未实现灵感，统一用固定高度的列表来收纳，避免右侧越堆越乱。"
+              ? "完成项收进归档，页面长度不再继续膨胀。"
+              : "未实现灵感统一收在这里，固定高度滚动，不让右栏失控。"
           }</p>
         </div>
         <div class="idea-filter-group">
