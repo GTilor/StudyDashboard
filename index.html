@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GTilor | AI Trajectory Control</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="page-noise" aria-hidden="true"></div>
+
+  <div class="container">
+    <header class="shell-panel main-header">
+      <div class="header-brand">
+        <p class="eyebrow">2026 TRAJECTORY CONTROL</p>
+        <h1 class="logo">
+          <i data-lucide="orbit" class="logo-icon"></i>
+          <span>GTilor</span> Control
+        </h1>
+        <p class="subtitle">
+          把阶段计划、专注执行、并行数学线和灵感收纳放进同一套学习控制台。
+        </p>
+      </div>
+
+      <div class="header-phase">
+        <span class="panel-label">Current Campaign</span>
+        <strong id="current-phase-title">阶段一 · 语言与算法筑基</strong>
+        <p id="current-phase-description">
+          先把编码速度、题感和系统基础稳定下来，再进入模型与项目输出期。
+        </p>
+      </div>
+
+      <div class="header-countdowns">
+        <div class="countdown-box">
+          <span class="cd-label">9月研究生入学</span>
+          <span class="cd-value" id="cd-enrollment">--天</span>
+        </div>
+        <div class="countdown-box emphasis">
+          <span class="cd-label">11月实习投递</span>
+          <span class="cd-value" id="cd-hunting">--天</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="dashboard-grid">
+      <div class="grid-col">
+        <section class="shell-panel card roadmap-section">
+          <div class="card-header">
+            <h2><i data-lucide="route"></i> Trajectory Map</h2>
+            <button class="icon-btn edit-trigger" onclick="openRoadmapEditor()"><i data-lucide="edit-2"></i></button>
+          </div>
+          <div class="timeline" id="roadmap-timeline"></div>
+          <p class="card-footnote">
+            路线图不是待办堆叠，而是你一年内最关键的推进顺序。
+          </p>
+        </section>
+      </div>
+
+      <div class="grid-col middle-col">
+        <section class="shell-panel card focus-section">
+          <div class="card-header">
+            <h2><i data-lucide="crosshair"></i> Execution Core</h2>
+            <div class="timer-presets">
+              <button class="preset-btn active" data-minutes="25" onclick="setTimer(25)">25m</button>
+              <button class="preset-btn" data-minutes="50" onclick="setTimer(50)">50m</button>
+              <button class="preset-btn rest" data-minutes="5" onclick="setTimer(5)">Rest</button>
+            </div>
+          </div>
+
+          <div class="focus-meta">
+            <div>
+              <span class="panel-label">Live Mode</span>
+              <strong id="focus-phase-tag">Foundation Mode</strong>
+            </div>
+            <p id="parallel-track-note">
+              并行数学线应持续提供推导、稳定性和分数阶控制层面的支撑。
+            </p>
+          </div>
+
+          <div class="timer-shell">
+            <div class="timer-container">
+              <div class="timer-display" id="timer-display">25:00</div>
+            </div>
+            <div class="active-task-box">
+              <span class="focus-label">ACTIVE OBJECTIVE</span>
+              <div class="focus-task-text" id="active-task-display">INITIATE SESSION</div>
+              <p class="focus-helper">
+                每个番茄钟都应该推进一个可以复述、记录或提交的具体节点。
+              </p>
+            </div>
+          </div>
+
+          <div class="timer-controls">
+            <button class="ctrl-btn primary" id="timer-start">START</button>
+            <button class="ctrl-btn" id="timer-pause">PAUSE</button>
+            <button class="ctrl-btn" id="timer-reset">RESET</button>
+          </div>
+        </section>
+
+        <section class="shell-panel card tasks-section">
+          <div class="card-header">
+            <h2><i data-lucide="list-checks"></i> Daily Protocol</h2>
+            <div class="header-actions">
+              <span class="date-badge" id="current-date">--</span>
+              <button class="icon-btn edit-trigger" onclick="openProtocolEditor()"><i data-lucide="settings"></i></button>
+            </div>
+          </div>
+
+          <div class="task-category">
+            <h3 class="cat-title ai-text"><i data-lucide="sun-medium"></i> MORNING · CORE EXECUTION</h3>
+            <p class="cat-copy">维持算法手感、语言熟练度和项目推进节奏。</p>
+            <ul class="task-list" id="ai-task-list"></ul>
+          </div>
+
+          <div class="task-category">
+            <h3 class="cat-title math-text"><i data-lucide="sigma"></i> NIGHT · MATH SPINE</h3>
+            <p class="cat-copy">把最优化、控制和分数阶理论持续压进你的研究与 AI 能力里。</p>
+            <ul class="task-list" id="math-task-list"></ul>
+          </div>
+        </section>
+      </div>
+
+      <div class="grid-col">
+        <section class="shell-panel card progress-section">
+          <div class="card-header">
+            <h2><i data-lucide="activity"></i> Proof Stack</h2>
+            <div>
+              <button class="icon-btn edit-trigger" style="display:inline-flex;" onclick="openMetricsEditor()"><i data-lucide="edit-2"></i></button>
+              <button class="icon-btn" style="display:inline-flex;" id="reset-btn" title="Reset Session"><i data-lucide="refresh-cw"></i></button>
+            </div>
+          </div>
+          <div class="progress-bars" id="metrics-container"></div>
+        </section>
+
+        <section class="shell-panel card idea-section">
+          <div class="card-header">
+            <h2><i data-lucide="lightbulb"></i> Idea Inbox</h2>
+            <button class="icon-btn edit-trigger" onclick="openIdeaEditor()"><i data-lucide="edit-2"></i></button>
+          </div>
+          <div class="idea-capture-box">
+            <div class="idea-capture-copy">
+              <span class="panel-label">Quick Capture</span>
+              <p>先记下来，再决定什么时候做，不让灵感无声蒸发。</p>
+            </div>
+            <input
+              id="idea-title-input"
+              type="text"
+              placeholder="例如：做一个自动提醒未完成 idea 的小组件"
+            >
+            <textarea
+              id="idea-note-input"
+              rows="3"
+              placeholder="补一句为什么值得做，或者下一步怎么开始。"
+            ></textarea>
+            <div class="idea-capture-actions">
+              <div class="idea-summary-pills" id="idea-summary-pills"></div>
+              <button class="ctrl-btn primary" id="add-idea-btn">CAPTURE IDEA</button>
+            </div>
+          </div>
+          <div class="idea-list" id="idea-list"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="modal-overlay" class="modal-overlay">
+    <div class="modal-content shell-panel">
+      <div class="modal-header">
+        <h2 id="modal-title">Edit Section</h2>
+        <button class="icon-btn" onclick="closeModal()"><i data-lucide="x"></i></button>
+      </div>
+      <div id="modal-body" class="modal-body"></div>
+      <div class="modal-footer">
+        <button class="ctrl-btn" onclick="closeModal()">Cancel</button>
+        <button class="ctrl-btn primary" id="modal-save-btn">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>lucide.createIcons();</script>
+</body>
+</html>
