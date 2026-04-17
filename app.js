@@ -178,9 +178,21 @@ function setupEventListeners() {
   const addIdeaBtn = document.getElementById("add-idea-btn");
   const ideaTitleInput = document.getElementById("idea-title-input");
   const ideaNoteInput = document.getElementById("idea-note-input");
+  const exportIdeasBtn = document.getElementById("export-ideas-btn");
+  const importIdeasBtn = document.getElementById("import-ideas-btn");
+  const ideaImportInput = document.getElementById("idea-import-input");
 
   if (addIdeaBtn) {
     addIdeaBtn.addEventListener("click", captureIdea);
+  }
+
+  if (exportIdeasBtn) {
+    exportIdeasBtn.addEventListener("click", exportIdeasBackup);
+  }
+
+  if (importIdeasBtn && ideaImportInput) {
+    importIdeasBtn.addEventListener("click", () => ideaImportInput.click());
+    ideaImportInput.addEventListener("change", importIdeasBackup);
   }
 
   if (ideaTitleInput) {
@@ -726,6 +738,74 @@ function toggleIdeaDone(ideaId) {
   idea.status = idea.status === "done" ? "captured" : "done";
   saveState();
   renderIdeaBoard();
+}
+
+function exportIdeasBackup() {
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    app: "StudyDashboard",
+    ideas: state.ideas,
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `study-dashboard-ideas-${getTodayStr()}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function importIdeasBackup(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(String(reader.result || "{}"));
+      const incomingIdeas = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray(parsed.ideas)
+        ? parsed.ideas
+        : [];
+
+      if (!incomingIdeas.length) {
+        alert("导入文件里没有可用的 idea 数据。");
+        return;
+      }
+
+      const existing = new Set(
+        state.ideas.map((idea) => `${idea.title}::${idea.note}::${idea.createdAt}`)
+      );
+
+      const mergedIdeas = incomingIdeas
+        .map((idea, index) => normalizeIdea(idea, index))
+        .filter((idea) => {
+          const fingerprint = `${idea.title}::${idea.note}::${idea.createdAt}`;
+          if (existing.has(fingerprint)) {
+            return false;
+          }
+
+          existing.add(fingerprint);
+          return true;
+        });
+
+      state.ideas = [...mergedIdeas, ...state.ideas];
+      saveState();
+      renderIdeaBoard();
+      alert(`已导入 ${mergedIdeas.length} 条 idea。`);
+    } catch (error) {
+      console.error("Failed to import ideas", error);
+      alert("导入失败，文件格式不是有效的 JSON。");
+    } finally {
+      event.target.value = "";
+    }
+  };
+
+  reader.readAsText(file);
 }
 
 window.openIdeaEditor = function openIdeaEditor() {

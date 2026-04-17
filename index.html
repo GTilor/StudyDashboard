@@ -156,7 +156,14 @@
             ></textarea>
             <div class="idea-capture-actions">
               <div class="idea-summary-pills" id="idea-summary-pills"></div>
-              <button class="ctrl-btn primary" id="add-idea-btn">CAPTURE IDEA</button>
+              <div class="idea-capture-cta">
+                <div class="idea-transfer-actions">
+                  <input id="idea-import-input" type="file" accept="application/json" hidden>
+                  <button class="ctrl-btn subtle" id="export-ideas-btn">EXPORT</button>
+                  <button class="ctrl-btn subtle" id="import-ideas-btn">IMPORT</button>
+                </div>
+                <button class="ctrl-btn primary" id="add-idea-btn">CAPTURE IDEA</button>
+              </div>
             </div>
           </div>
           <div class="idea-list" id="idea-list"></div>

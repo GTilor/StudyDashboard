@@ -561,6 +561,12 @@ body {
   color: #fff7ee;
 }
 
+.ctrl-btn.subtle {
+  background: rgba(21, 17, 15, 0.05);
+  border-color: rgba(21, 17, 15, 0.08);
+  color: var(--text-muted);
+}
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -785,6 +791,14 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.idea-capture-cta,
+.idea-transfer-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   flex-wrap: wrap;
 }
 
