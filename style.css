@@ -835,6 +835,75 @@ body {
   gap: 0.85rem;
 }
 
+.idea-lane {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border-radius: 22px;
+  border: 1px solid rgba(21, 17, 15, 0.08);
+  background: rgba(255, 255, 255, 0.38);
+}
+
+.idea-lane.tone-next {
+  background: linear-gradient(135deg, rgba(43, 89, 195, 0.08), rgba(255, 255, 255, 0.5));
+}
+
+.idea-lane.tone-backlog {
+  background: linear-gradient(135deg, rgba(211, 92, 45, 0.06), rgba(255, 255, 255, 0.5));
+}
+
+.idea-lane.tone-done {
+  background: linear-gradient(135deg, rgba(28, 138, 93, 0.05), rgba(255, 255, 255, 0.46));
+}
+
+.idea-lane-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.idea-lane-copy {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.idea-lane-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-main);
+}
+
+.idea-lane-note,
+.idea-lane-empty {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+.idea-lane-count {
+  flex-shrink: 0;
+  padding: 0.38rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(21, 17, 15, 0.06);
+  color: var(--text-main);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.idea-lane-body {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.idea-lane-empty {
+  padding: 0.9rem 0;
+}
+
 .idea-empty,
 .idea-item {
   border-radius: 20px;

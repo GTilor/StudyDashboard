@@ -565,6 +565,30 @@ function buildIdeaSummary() {
   return { pendingCount, staleCount, shippedCount };
 }
 
+function normalizeNextIdeas() {
+  let seenNext = false;
+
+  state.ideas = state.ideas.map((idea) => {
+    if (idea.status !== "next") {
+      return idea;
+    }
+
+    if (!seenNext) {
+      seenNext = true;
+      return idea;
+    }
+
+    return {
+      ...idea,
+      status: "captured",
+    };
+  });
+}
+
+function sortIdeasByDate(items) {
+  return [...items].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
 function renderIdeaBoard() {
   const container = document.getElementById("idea-list");
   const summary = document.getElementById("idea-summary-pills");
@@ -599,16 +623,88 @@ function renderIdeaBoard() {
     return;
   }
 
-  const sortOrder = { next: 0, captured: 1, done: 2 };
-  const sortedIdeas = [...state.ideas].sort((left, right) => {
-    if (sortOrder[left.status] !== sortOrder[right.status]) {
-      return sortOrder[left.status] - sortOrder[right.status];
-    }
+  normalizeNextIdeas();
 
-    return right.createdAt.localeCompare(left.createdAt);
-  });
+  const nextIdeas = sortIdeasByDate(state.ideas.filter((idea) => idea.status === "next"));
+  const backlogIdeas = sortIdeasByDate(state.ideas.filter((idea) => idea.status === "captured"));
+  const doneIdeas = sortIdeasByDate(state.ideas.filter((idea) => idea.status === "done"));
 
-  sortedIdeas.forEach((idea) => container.appendChild(createIdeaElement(idea)));
+  container.appendChild(
+    createIdeaLane({
+      title: "Current Build",
+      count: nextIdeas.length,
+      note: "这里只放你当前决定要推进的一条灵感，它会同步到中间执行区。",
+      items: nextIdeas,
+      emptyText: "还没有指定当前推进项。先在 backlog 里收集，再挑一条拉进执行。",
+      tone: "next",
+    })
+  );
+
+  container.appendChild(
+    createIdeaLane({
+      title: "Idea Backlog",
+      count: backlogIdeas.length,
+      note: "这里就是未实现灵感池。可以长期积累很多条，之后按优先级慢慢消化。",
+      items: backlogIdeas,
+      emptyText: "目前 backlog 还是空的。你之后记下的灵感会一直累计在这里。",
+      tone: "backlog",
+    })
+  );
+
+  container.appendChild(
+    createIdeaLane({
+      title: "Shipped Archive",
+      count: doneIdeas.length,
+      note: "已经落地的想法不删除，留在这里当证据和回顾材料。",
+      items: doneIdeas,
+      emptyText: "还没有已实现灵感。等你把 backlog 里的东西做出来，这里会慢慢长出来。",
+      tone: "done",
+    })
+  );
+}
+
+function createIdeaLane({ title, count, note, items, emptyText, tone }) {
+  const section = document.createElement("section");
+  section.className = `idea-lane tone-${tone}`;
+
+  const header = document.createElement("div");
+  header.className = "idea-lane-header";
+
+  const headerCopy = document.createElement("div");
+  headerCopy.className = "idea-lane-copy";
+
+  const headerTitle = document.createElement("h3");
+  headerTitle.className = "idea-lane-title";
+  headerTitle.innerText = title;
+  headerCopy.appendChild(headerTitle);
+
+  const headerNote = document.createElement("p");
+  headerNote.className = "idea-lane-note";
+  headerNote.innerText = note;
+  headerCopy.appendChild(headerNote);
+
+  const countBadge = document.createElement("span");
+  countBadge.className = "idea-lane-count";
+  countBadge.innerText = `${count} 条`;
+
+  header.appendChild(headerCopy);
+  header.appendChild(countBadge);
+  section.appendChild(header);
+
+  const body = document.createElement("div");
+  body.className = "idea-lane-body";
+
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "idea-lane-empty";
+    empty.innerText = emptyText;
+    body.appendChild(empty);
+  } else {
+    items.forEach((idea) => body.appendChild(createIdeaElement(idea)));
+  }
+
+  section.appendChild(body);
+  return section;
 }
 
 function createIdeaElement(idea) {
@@ -724,6 +820,12 @@ function captureIdea() {
 function activateIdea(ideaId) {
   const idea = state.ideas.find((item) => item.id === ideaId);
   if (!idea) return;
+
+  state.ideas.forEach((item) => {
+    if (item.status === "next") {
+      item.status = "captured";
+    }
+  });
 
   idea.status = "next";
   setFocusTask(idea.title);
@@ -875,6 +977,7 @@ window.openIdeaEditor = function openIdeaEditor() {
         })
         .filter(Boolean);
 
+      normalizeNextIdeas();
       saveState();
       renderIdeaBoard();
       closeModal();
