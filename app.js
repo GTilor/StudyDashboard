@@ -129,6 +129,7 @@ let state = {
   masterProtocol: clone(defaultMasterProtocol),
   metrics: clone(defaultMetrics),
   ideas: clone(defaultIdeas),
+  ideaPanelView: "pending",
   outcomes: clone(defaultOutcomes),
   tasks: { ai: [], math: [] },
   focusTask: "选一个真正能推进的任务，然后开启番茄钟。",
@@ -298,6 +299,11 @@ function migrateState(parsed) {
     mutated = true;
   } else {
     state.ideas = state.ideas.map(normalizeIdea);
+  }
+
+  if (!["pending", "archive"].includes(state.ideaPanelView)) {
+    state.ideaPanelView = "pending";
+    mutated = true;
   }
 
   state.timerRunning = false;
@@ -566,6 +572,7 @@ function buildIdeaSummary() {
 }
 
 function normalizeNextIdeas() {
+  let mutated = false;
   let seenNext = false;
 
   state.ideas = state.ideas.map((idea) => {
@@ -578,16 +585,44 @@ function normalizeNextIdeas() {
       return idea;
     }
 
+    mutated = true;
     return {
       ...idea,
       status: "captured",
     };
   });
+
+  return mutated;
 }
 
 function sortIdeasByDate(items) {
   return [...items].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
+
+function getIdeaReminderText(idea) {
+  const ageInDays = getIdeaAgeInDays(idea.createdAt);
+
+  if (idea.status === "done") {
+    return "已落地";
+  }
+
+  if (ageInDays === 0) {
+    return "今天记录";
+  }
+
+  if (isIdeaStale(idea)) {
+    return `${ageInDays}天未推进`;
+  }
+
+  return `${ageInDays}天前记录`;
+}
+
+window.setIdeaPanelView = function setIdeaPanelView(view) {
+  if (!["pending", "archive"].includes(view)) return;
+  state.ideaPanelView = view;
+  saveState();
+  renderIdeaBoard();
+};
 
 function renderIdeaBoard() {
   const container = document.getElementById("idea-list");
@@ -595,127 +630,146 @@ function renderIdeaBoard() {
 
   if (!container || !summary) return;
 
+  if (normalizeNextIdeas()) {
+    saveState();
+  }
+
   const { pendingCount, staleCount, shippedCount } = buildIdeaSummary();
+  const currentIdea = sortIdeasByDate(state.ideas.filter((idea) => idea.status === "next"))[0] || null;
+  const backlogIdeas = sortIdeasByDate(state.ideas.filter((idea) => idea.status === "captured"));
+  const archivedIdeas = sortIdeasByDate(state.ideas.filter((idea) => idea.status === "done"));
+
   summary.innerHTML = `
     <span class="idea-pill">
       <strong>${pendingCount}</strong>
-      待实现
+      backlog
     </span>
     <span class="idea-pill ${staleCount ? "alert" : ""}">
       <strong>${staleCount}</strong>
-      久未推进
+      stale
     </span>
     <span class="idea-pill">
       <strong>${shippedCount}</strong>
-      已实现
+      shipped
     </span>
   `;
 
-  container.innerHTML = "";
-
-  if (!state.ideas.length) {
-    container.innerHTML = `
-      <div class="idea-empty">
-        <strong>把灵感先存进来。</strong>
-        <p>Demo 想法、研究题目、自动化脚本、页面改造点都可以放这里。先留下痕迹，再决定什么时候推进。</p>
+  container.innerHTML = `
+    <section class="idea-spotlight ${currentIdea ? "has-idea" : "is-empty"}">
+      <div class="idea-spotlight-head">
+        <div>
+          <span class="panel-label">Now Building</span>
+          <h3>${currentIdea ? escapeHtml(currentIdea.title) : "还没有当前推进项"}</h3>
+        </div>
+        <span class="idea-spotlight-state">${currentIdea ? getIdeaReminderText(currentIdea) : "idle"}</span>
       </div>
-    `;
+      <p class="idea-spotlight-copy">${
+        currentIdea
+          ? escapeHtml(currentIdea.note || "这条 idea 已经被拉进当前执行区，等你把它推进成一个真正落地的节点。")
+          : "把 backlog 里的某一条拉上来即可。右侧列表始终允许你积累很多未实现灵感，但当前只保留一个执行焦点。"
+      }</p>
+      <div class="idea-spotlight-footer">
+        <span class="idea-spotlight-date">${currentIdea ? escapeHtml(currentIdea.createdAt) : "FOCUS SLOT"}</span>
+        ${
+          currentIdea
+            ? `
+              <div class="idea-spotlight-actions">
+                <button class="idea-inline-btn done" onclick="toggleIdeaDone('${currentIdea.id}')">标记完成</button>
+                <button class="idea-inline-btn" onclick="openIdeaEditor()">编辑清单</button>
+              </div>
+            `
+            : `<button class="idea-inline-btn" onclick="openIdeaEditor()">管理清单</button>`
+        }
+      </div>
+    </section>
+
+    <section class="idea-stack-shell">
+      <div class="idea-stack-header">
+        <div class="idea-stack-copy">
+          <span class="panel-label">Queue View</span>
+          <h3>${state.ideaPanelView === "archive" ? "Shipped Archive" : "Idea Backlog"}</h3>
+          <p>${
+            state.ideaPanelView === "archive"
+              ? "完成的灵感放进归档，不再无限拉长页面；需要回炉时再重新打开。"
+              : "这里专门放未实现灵感，统一用固定高度的列表来收纳，避免右侧越堆越乱。"
+          }</p>
+        </div>
+        <div class="idea-filter-group">
+          <button class="idea-filter-btn ${state.ideaPanelView === "pending" ? "active" : ""}" data-view="pending">
+            Backlog
+            <span>${backlogIdeas.length}</span>
+          </button>
+          <button class="idea-filter-btn ${state.ideaPanelView === "archive" ? "active" : ""}" data-view="archive">
+            Archive
+            <span>${archivedIdeas.length}</span>
+          </button>
+        </div>
+      </div>
+      <div class="idea-stack-list" id="idea-stack-list"></div>
+    </section>
+  `;
+
+  container.querySelectorAll(".idea-filter-btn").forEach((button) => {
+    button.addEventListener("click", () => setIdeaPanelView(button.dataset.view));
+  });
+
+  const stackList = document.getElementById("idea-stack-list");
+  const visibleIdeas = state.ideaPanelView === "archive" ? archivedIdeas : backlogIdeas;
+
+  if (!visibleIdeas.length) {
+    stackList.appendChild(createIdeaStackEmpty(state.ideaPanelView));
     return;
   }
 
-  normalizeNextIdeas();
-
-  const nextIdeas = sortIdeasByDate(state.ideas.filter((idea) => idea.status === "next"));
-  const backlogIdeas = sortIdeasByDate(state.ideas.filter((idea) => idea.status === "captured"));
-  const doneIdeas = sortIdeasByDate(state.ideas.filter((idea) => idea.status === "done"));
-
-  container.appendChild(
-    createIdeaLane({
-      title: "Current Build",
-      count: nextIdeas.length,
-      note: "这里只放你当前决定要推进的一条灵感，它会同步到中间执行区。",
-      items: nextIdeas,
-      emptyText: "还没有指定当前推进项。先在 backlog 里收集，再挑一条拉进执行。",
-      tone: "next",
-    })
-  );
-
-  container.appendChild(
-    createIdeaLane({
-      title: "Idea Backlog",
-      count: backlogIdeas.length,
-      note: "这里就是未实现灵感池。可以长期积累很多条，之后按优先级慢慢消化。",
-      items: backlogIdeas,
-      emptyText: "目前 backlog 还是空的。你之后记下的灵感会一直累计在这里。",
-      tone: "backlog",
-    })
-  );
-
-  container.appendChild(
-    createIdeaLane({
-      title: "Shipped Archive",
-      count: doneIdeas.length,
-      note: "已经落地的想法不删除，留在这里当证据和回顾材料。",
-      items: doneIdeas,
-      emptyText: "还没有已实现灵感。等你把 backlog 里的东西做出来，这里会慢慢长出来。",
-      tone: "done",
-    })
-  );
+  visibleIdeas.forEach((idea) => stackList.appendChild(createIdeaRow(idea, state.ideaPanelView)));
 }
 
-function createIdeaLane({ title, count, note, items, emptyText, tone }) {
-  const section = document.createElement("section");
-  section.className = `idea-lane tone-${tone}`;
-
-  const header = document.createElement("div");
-  header.className = "idea-lane-header";
-
-  const headerCopy = document.createElement("div");
-  headerCopy.className = "idea-lane-copy";
-
-  const headerTitle = document.createElement("h3");
-  headerTitle.className = "idea-lane-title";
-  headerTitle.innerText = title;
-  headerCopy.appendChild(headerTitle);
-
-  const headerNote = document.createElement("p");
-  headerNote.className = "idea-lane-note";
-  headerNote.innerText = note;
-  headerCopy.appendChild(headerNote);
-
-  const countBadge = document.createElement("span");
-  countBadge.className = "idea-lane-count";
-  countBadge.innerText = `${count} 条`;
-
-  header.appendChild(headerCopy);
-  header.appendChild(countBadge);
-  section.appendChild(header);
-
-  const body = document.createElement("div");
-  body.className = "idea-lane-body";
-
-  if (!items.length) {
-    const empty = document.createElement("div");
-    empty.className = "idea-lane-empty";
-    empty.innerText = emptyText;
-    body.appendChild(empty);
-  } else {
-    items.forEach((idea) => body.appendChild(createIdeaElement(idea)));
-  }
-
-  section.appendChild(body);
-  return section;
+function createIdeaStackEmpty(view) {
+  const empty = document.createElement("div");
+  empty.className = "idea-stack-empty";
+  empty.innerText =
+    view === "archive"
+      ? "已完成的 idea 会收进这里，但列表本身保持固定高度，不会把页面越拉越长。"
+      : "这里会持续累计未实现灵感。你可以放心记很多条，然后再慢慢挑一条拉进当前推进。";
+  return empty;
 }
 
-function createIdeaElement(idea) {
+function createIdeaRow(idea, view) {
   const article = document.createElement("article");
-  article.className = `idea-item status-${idea.status}${isIdeaStale(idea) ? " is-stale" : ""}`;
+  article.className = `idea-row status-${idea.status}${isIdeaStale(idea) ? " is-stale" : ""}`;
 
-  const kicker = document.createElement("div");
-  kicker.className = "idea-kicker";
+  const main = document.createElement("div");
+  main.className = "idea-row-main";
+
+  const top = document.createElement("div");
+  top.className = "idea-row-top";
+
+  const title = document.createElement("h4");
+  title.className = "idea-row-title";
+  title.innerText = idea.title;
+  top.appendChild(title);
+
+  const meta = document.createElement("span");
+  meta.className = "idea-row-meta";
+  meta.innerText = getIdeaReminderText(idea);
+  top.appendChild(meta);
+  main.appendChild(top);
+
+  const note = document.createElement("p");
+  note.className = "idea-row-note";
+  note.innerText = idea.note || (view === "archive" ? "已归档，必要时可重新拉回 backlog。" : "还没有补充说明。");
+  main.appendChild(note);
+
+  const footer = document.createElement("div");
+  footer.className = "idea-row-footer";
+
+  const capturedAt = document.createElement("span");
+  capturedAt.className = "idea-row-date";
+  capturedAt.innerText = idea.createdAt;
+  footer.appendChild(capturedAt);
 
   const badges = document.createElement("div");
-  badges.className = "idea-badges";
+  badges.className = "idea-row-badges";
 
   const status = getIdeaMeta(idea.status);
   const statusBadge = document.createElement("span");
@@ -723,69 +777,40 @@ function createIdeaElement(idea) {
   statusBadge.innerText = status.label;
   badges.appendChild(statusBadge);
 
-  const reminderBadge = document.createElement("span");
-  const ageInDays = getIdeaAgeInDays(idea.createdAt);
-  reminderBadge.className = `idea-reminder-badge ${
-    idea.status === "done" ? "is-done" : isIdeaStale(idea) ? "is-alert" : ""
-  }`;
-
-  if (idea.status === "done") {
-    reminderBadge.innerText = "已落地";
-  } else if (ageInDays === 0) {
-    reminderBadge.innerText = "今天记录";
-  } else if (isIdeaStale(idea)) {
-    reminderBadge.innerText = `${ageInDays}天未实现`;
-  } else {
-    reminderBadge.innerText = `${ageInDays}天前记录`;
+  if (isIdeaStale(idea)) {
+    const staleBadge = document.createElement("span");
+    staleBadge.className = "idea-reminder-badge is-alert";
+    staleBadge.innerText = "stale";
+    badges.appendChild(staleBadge);
   }
 
-  badges.appendChild(reminderBadge);
-  kicker.appendChild(badges);
-
-  const recordedAt = document.createElement("span");
-  recordedAt.className = "idea-recorded-at";
-  recordedAt.innerText = idea.createdAt;
-  kicker.appendChild(recordedAt);
-
-  const title = document.createElement("h3");
-  title.innerText = idea.title;
-  article.appendChild(kicker);
-  article.appendChild(title);
-
-  if (idea.note) {
-    const note = document.createElement("p");
-    note.innerText = idea.note;
-    article.appendChild(note);
-  }
-
-  const footer = document.createElement("div");
-  footer.className = "idea-item-footer";
-
-  const hint = document.createElement("span");
-  hint.className = "idea-action-hint";
-  hint.innerText =
-    idea.status === "done" ? "已实现的灵感会保留在这里，方便回看。"
-    : "需要推进时，把它拉进当前执行区。";
-  footer.appendChild(hint);
+  footer.appendChild(badges);
+  main.appendChild(footer);
 
   const actions = document.createElement("div");
-  actions.className = "idea-item-actions";
+  actions.className = "idea-row-actions";
 
-  const focusButton = document.createElement("button");
-  focusButton.className = "idea-inline-btn primary";
-  focusButton.innerText = idea.status === "done" ? "重新打开" : "拉进执行";
-  focusButton.addEventListener("click", () => activateIdea(idea.id));
-  actions.appendChild(focusButton);
+  const primaryButton = document.createElement("button");
+  primaryButton.className = "idea-inline-btn primary";
+  primaryButton.innerText = view === "archive" ? "重新打开" : "设为当前";
+  primaryButton.addEventListener("click", () => activateIdea(idea.id));
+  actions.appendChild(primaryButton);
 
-  const statusButton = document.createElement("button");
-  statusButton.className = `idea-inline-btn ${idea.status === "done" ? "" : "done"}`;
-  statusButton.innerText = idea.status === "done" ? "撤回完成" : "标记完成";
-  statusButton.addEventListener("click", () => toggleIdeaDone(idea.id));
-  actions.appendChild(statusButton);
+  const secondaryButton = document.createElement("button");
+  secondaryButton.className = `idea-inline-btn ${view === "archive" ? "" : "done"}`;
+  secondaryButton.innerText = view === "archive" ? "编辑" : "完成";
+  secondaryButton.addEventListener("click", () => {
+    if (view === "archive") {
+      openIdeaEditor();
+      return;
+    }
 
-  footer.appendChild(actions);
-  article.appendChild(footer);
+    toggleIdeaDone(idea.id);
+  });
+  actions.appendChild(secondaryButton);
 
+  article.appendChild(main);
+  article.appendChild(actions);
   return article;
 }
 
@@ -810,6 +835,7 @@ function captureIdea() {
     createdAt: getTodayStr(),
   });
 
+  state.ideaPanelView = "pending";
   titleInput.value = "";
   noteInput.value = "";
   saveState();
@@ -828,6 +854,7 @@ function activateIdea(ideaId) {
   });
 
   idea.status = "next";
+  state.ideaPanelView = "pending";
   setFocusTask(idea.title);
   saveState();
   renderIdeaBoard();
@@ -838,6 +865,7 @@ function toggleIdeaDone(ideaId) {
   if (!idea) return;
 
   idea.status = idea.status === "done" ? "captured" : "done";
+  state.ideaPanelView = idea.status === "done" ? "archive" : "pending";
   saveState();
   renderIdeaBoard();
 }
@@ -896,6 +924,8 @@ function importIdeasBackup(event) {
         });
 
       state.ideas = [...mergedIdeas, ...state.ideas];
+      normalizeNextIdeas();
+      state.ideaPanelView = "pending";
       saveState();
       renderIdeaBoard();
       alert(`已导入 ${mergedIdeas.length} 条 idea。`);
